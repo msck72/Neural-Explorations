@@ -3,8 +3,8 @@ from torchvision.datasets import MNIST
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
-import matplotlib.pyplot as plt
 import torch.nn.functional as F
+import os
 
 def download_mnist():
     transform = transforms.Compose([
@@ -57,10 +57,13 @@ def train(model, trainloader, epochs):
             optimizer.zero_grad()
             loss.backward()
 
-            for name, param in model.named_parameters():
-                if param.grad is not None:
-                    grad_file = f"gradients/{name}_batch{batch_num}.pt"
-                    torch.save(param.grad.clone(), grad_file)
+            os.makedirs('./Gradients', exist_ok=True)
+            if batch_num % 20 == 0:
+                for name, param in model.named_parameters():
+                    if param.grad is not None:
+                        os.makedirs(f'./Gradients/{name}', exist_ok=True)
+                        grad_file = f"Gradients/{name}/{batch_num}.pt"
+                        torch.save(param.grad.clone(), grad_file)
 
             optimizer.step()
             batch_num += 1
@@ -112,18 +115,6 @@ def main():
     test_loss, test_accuracy = test(model, test_loader)
 
     print(f"Test Loss: {test_loss}, Test Accuracy: {test_accuracy}")
-
-
-    for name, param in model.named_parameters():
-        if param.grad is not None:
-            plt.figure(figsize=(6, 4))
-            grad = param.grad.view(-1).cpu().numpy()
-            plt.hist(grad, bins=50, alpha=0.75, color='blue')
-            plt.title(f"Gradient Distribution for {name}")
-            plt.xlabel("Gradient Value")
-            plt.ylabel("Frequency")
-            plt.grid(True)
-            plt.show()
 
 
 if __name__ == "__main__":

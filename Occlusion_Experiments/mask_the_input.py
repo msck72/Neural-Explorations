@@ -17,12 +17,15 @@ model = resnet18(weights='DEFAULT')
 model.eval()
 
 img_stack = None
-
+target_classes = []
+file_names = []
 
 for f in os.listdir('data'):
     if not os.path.isfile(f'./data/{f}'):
         continue
     
+    file_names.append(f.split('.')[0])
+
     img = Image.open(f'./data/{f}').convert('RGB')
     img_tensor = transform(img)
     img_tensor = img_tensor.unsqueeze(0)
@@ -32,26 +35,44 @@ for f in os.listdir('data'):
     else:
         img_stack = torch.cat((img_stack, img_tensor), dim=0)
     
+    target_classes.append(int(f.split('_')[0]))
+    
 
-num_images, _, height, width = img_tensor.size()
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+target_classes = torch.Tensor(target_classes).to(device).type(torch.int64)
+target_classes = target_classes.view((10, 1))
+num_images, _, height, width = img_stack.size()
+
 
 filter_size = 100
 filter_vals = torch.zeros((num_images, 3, filter_size, filter_size))
-actual_filter = torch.ones_like(img_stack)
-actual_filter[:, :, :filter_size, :filter_size] = filter_vals
+mask = torch.ones_like(img_stack)
+mask[:, :, :filter_size, :filter_size] = filter_vals
 
-# prob_variations = torch.zeros((height - filter_size + 1, width - filter_size + 1))
+model = model.to(device)
+img_stack = img_stack.to(device)
+mask = mask.to(device)
+
+prob_variations = torch.zeros((num_images, height - filter_size + 1, width - filter_size + 1))
+prob_variations = prob_variations.to(device)
 
 for i in range(height - filter_size + 1):
-    moving_filter = actual_filter.clone()
+    moving_filter = mask.clone()
     moving_filter = torch.roll(moving_filter, i, dims=(2))
     for j in range(width - filter_size):
-    
+        
         with torch.no_grad():
             y_hat = model(img_stack * moving_filter)
-            print(f'Prediction = {torch.max(y_hat, 1)[1]}')
+            prob_variations[:, i, j] = y_hat.gather(1, target_classes).squeeze(1)
+            # print(f'Prediction = {torch.max(y_hat, 1)[1]}')
             moving_filter = torch.roll(moving_filter, 1, dims=(3))
     print("one hroizontal level completed")
+
+os.makedirs('./probability_variations', exist_ok=True)
+
+for i in range(target_classes.size(0)):
+    torch.save(prob_variations[i], f'./probability_variations/{file_names[i]}.pth')
 
 # print(prob_variations, end="\n\n\n")
 
@@ -63,9 +84,9 @@ for i in range(height - filter_size + 1):
 # filter_size = 10
 # filter = torch.ones((1, 3, filter_size, filter_size))
 
-# actual_filter = torch.zeros_like(img_tensor)
-# actual_filter[:, :, :filter_size, :filter_size] = filter
-# actual_filter = 1 - actual_filter
+# mask = torch.zeros_like(img_tensor)
+# mask[:, :, :filter_size, :filter_size] = filter
+# mask = 1 - mask
 
 
 # model = resnet18(weights="DEFAULT")
@@ -75,7 +96,7 @@ for i in range(height - filter_size + 1):
 #     ans_before = model(img_tensor)
 #     print(f"ans _ before = {torch.max(ans_before, 1)[1]}")
 
-# img_tensor = img_tensor * actual_filter
+# img_tensor = img_tensor * mask
 
 # with torch.no_grad():
 #     ans = model(img_tensor)

@@ -93,6 +93,34 @@ class Tensor:
 
         out._backward = _backward
         return out
+
+    def __matmul__(self, other):
+        if self.shape[-1] != other.shape[0] or len(self.shape) != 2 or len(other.shape) != 2:
+            raise Exception('self.shape[-1] does not match other.shape[0]')
+
+        def _matmul(a, b, c):
+            
+            # c = [[0 for _ in range(len(b[0]))] for _ in range(len(a))]
+
+            for i in range(len(c)):
+                for j in range(len(c[0])):
+                    for k in range(len(a[0])):
+                        c[i][j] += a[i][k] * b[k][j]
+            return c
+                    
+
+        out = Tensor((self.shape[0], other.shape[1]))
+        out_tensor = [[0 for _ in range(len(other.tensor[0]))] for _ in range(len(self.tensor))]
+        out.from_values(tensor=_matmul(self.tensor, other.tensor, out_tensor),
+                        formed_by=(self, other),
+                        op='@')
+
+        def _backward():
+            _matmul(out.grad, other.tensor, self.grad)
+            _matmul(self.tensor, out.grad, other.grad)
+        
+        out._backward = _backward
+        return out
     
     def _apply_on_tensor_parts(self, tensor_part, other_tensor_part, operation):
         if type(tensor_part) is float:
@@ -111,9 +139,9 @@ class Tensor:
                 topo.append(v)
         build_topo(self)
 
-        # print(f'len(topo) = {len(topo)}')
-        # for v in reversed(topo):
-        #     print(f'v = {v}\n\n')
+        print(f'len(topo) = {len(topo)}')
+        for v in reversed(topo):
+            print(f'v = {v}\n\n')
             
         # print(topo)
         self._set_grad_to_one()

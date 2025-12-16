@@ -49,15 +49,17 @@ class Value:
         return out
 
     def __pow__(self, n):
-        if type(n) is not Value:
+        if not isinstance(n, Value):
             n = Value(n)
-        res = pow(self.data , n.data)
-        out = Value(res, _formed_by=(self,), _op='**')
-        
+
+        res = self.data ** n.data
+        out = Value(res, _formed_by=(self, n), _op='**')
+
         def _backward():
-            self.grad += (n.data - 1) * self.data * out.grad
-            n.grad += (res * math.log(self.data)) * out.grad
-        
+            self.grad += n.data * (self.data ** (n.data - 1)) * out.grad
+            if self.data > 0:
+                n.grad += res * math.log(self.data) * out.grad
+
         out._backward = _backward
         return out
 
@@ -86,7 +88,7 @@ class Value:
 
         self.grad = 1
         for v in reversed(topo):
-            print(v)
+            # print(v)
             v._backward()
     
     def __repr__(self):

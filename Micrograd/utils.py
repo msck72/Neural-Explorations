@@ -1,4 +1,32 @@
+import torch
 from graphviz import Digraph
+
+from nn import MLP
+
+class PytorchNeuron:
+    def __init__(self, neuron):
+        self.weights = [torch.tensor(w.data, requires_grad=True) for w in neuron.weights]
+        self.bias = torch.tensor(neuron.bias.data, requires_grad=True)
+
+    def __call__(self, x):
+        weighted_sum = sum((w * xi for w, xi in zip(self.weights, x)), self.bias)
+        return torch.tanh(weighted_sum)
+
+class PytorchLayer:
+    def __init__(self, layer):
+        self.linear = [PytorchNeuron(neuron) for neuron in layer.neurons]
+
+    def __call__(self, x):
+        return [neuron(x) for neuron in self.linear]
+
+class PytorchModel:
+    def __init__(self, model: MLP):
+        self.layers = [PytorchLayer(layer) for layer in model.layers]
+
+    def __call__(self, x):
+        for l in self.layers:
+            x = l(x)
+        return x
 
 
 def draw_graph(last_node):

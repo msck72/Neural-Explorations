@@ -3,6 +3,8 @@ Neural Experiments is a place where I do some experiments on different deep neur
 
 ## Micrograd
 
+This repository contains my implementation of Micrograd, inspired by Andrej Karpathy’s [Micrograd](https://github.com/karpathy/micrograd) series. I have extended the original implementation by adding several new features and enhancements.
+
 Currently adding support for scalar values and building MLP using those scalar values.
 
 Tracking gradient using Micrograd engine.
@@ -21,6 +23,8 @@ e.backward()
 
 draw_graph(e)
 ```
+
+![Graph of the above expression along with the gradients obtained after backpropagation.](./assets/output.svg)
 
 ### Creating a MLP using Values and micrograd engine for backpropagation
 

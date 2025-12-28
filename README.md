@@ -10,7 +10,7 @@ Currently adding support for scalar values and building MLP using those scalar v
 Tracking gradient using Micrograd engine.
 
 ```python
-import Value from engine
+from engine import Value
 from utils import draw_graph
 a = Value(2.0)
 b = Value(3.0)

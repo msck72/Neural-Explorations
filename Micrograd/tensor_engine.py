@@ -1,4 +1,5 @@
 # Tesnor as a multidimensional array
+import math
 import random
 from pprint import pformat
 
@@ -99,9 +100,6 @@ class Tensor:
             raise Exception('self.shape[-1] does not match other.shape[0]')
 
         def _matmul(a, b, c):
-            
-            # c = [[0 for _ in range(len(b[0]))] for _ in range(len(a))]
-
             for i in range(len(c)):
                 for j in range(len(c[0])):
                     for k in range(len(a[0])):
@@ -116,16 +114,46 @@ class Tensor:
                         op='@')
 
         def _backward():
-            _matmul(out.grad, other.tensor, self.grad)
-            _matmul(self.tensor, out.grad, other.grad)
+            _matmul(out.grad, transpose(other.tensor), self.grad)
+            _matmul(transpose(self.tensor), out.grad, other.grad)
         
         out._backward = _backward
         return out
     
+    def tanh(self):
+
+        def _tanh_grad(x):
+            return 1 - math.tanh(x) ** 2
+
+        out = Tensor(self.shape)
+        out.from_values(tensor=self._unary_apply_on_tensor_parts(self.tensor, lambda x: math.tanh(x)),
+                        formed_by=(self,),
+                        op='tanh')
+
+        def _helper(grad, val, chained_grad, shape):
+            if len(shape) == 1:
+                for i in range(len(chained_grad)):
+                    grad[i] = _tanh_grad(val[i]) * chained_grad[i]
+                return
+            for i in range(len(grad)):
+                _helper(grad[i], val[i], chained_grad[i], shape[1:])
+            return
+
+        def _backward():
+            _helper(self.grad, self.tensor, out.grad, self.shape)
+
+        out._backward = _backward
+        return out
+    
     def _apply_on_tensor_parts(self, tensor_part, other_tensor_part, operation):
-        if type(tensor_part) is float:
+        if not isinstance(tensor_part, list):
             return operation(tensor_part, other_tensor_part)
         return [self._apply_on_tensor_parts(tp, o_tp, operation) for tp, o_tp in zip(tensor_part, other_tensor_part)]
+
+    def _unary_apply_on_tensor_parts(self, tensor_part, operation):
+        if not isinstance(tensor_part, list):
+            return operation(tensor_part)
+        return [self._unary_apply_on_tensor_parts(tp, operation) for tp in tensor_part]
 
     def backward(self):
 
@@ -161,4 +189,8 @@ class Tensor:
         for i in tensor_part:
             ans += f' {self._get_tensor_str(i)}'
         return ans + '],\n'
+
+
+def transpose(mat):
+    return list(map(list, zip(*mat)))
 

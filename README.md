@@ -10,8 +10,8 @@ Currently adding support for scalar values and building MLP using those scalar v
 Tracking gradient using Micrograd engine.
 
 ```python
-from engine import Value
-from utils import draw_graph
+from Micrograd.engine import Value
+from Micrograd.utils import draw_graph
 a = Value(2.0)
 b = Value(3.0)
 
@@ -29,8 +29,8 @@ draw_graph(e)
 ### Creating a MLP using Values and micrograd engine for backpropagation
 
 ```python
-from nn import MLP, mse_loss
-from nn import Optimizer
+from Micrograd.nn import MLP, mse_loss
+from Micrograd.nn import Optimizer
 
 layers = [2, 1]
 inputs = [2.0, 3.0]
@@ -56,33 +56,3 @@ my_model.print_grad()
 ```
 
 ### Comparing the model output/loss and gradient with pytorch implementation
-
-This can be done using the following way:
-
-```python
-from utils import PytorchModel
-import torch
-
-# pass in the model created using micrograd MLP
-pytorch_model = PytorchModel(my_model)
-output = pytorch_model(torch.tensor(inputs))
-print(f'pytorch_model_output: {output}')
-
-targets_tensor = [t for t in targets]
-
-loss = sum([ (p - t) ** 2 for p, t in zip(output, targets_tensor)]) / len(output)
-
-print(f'pytorch_loss: {loss.item()}')
-
-loss.backward()
-
-print("Pytorch gradients:")
-for i, layer in enumerate(pytorch_model.layers):
-    print(f"Layer {i}:")
-    for neuron in layer.linear:
-        print("Neuron:")
-        for w in neuron.weights:
-            print(w.grad)
-        print(neuron.bias.grad)
-```
-

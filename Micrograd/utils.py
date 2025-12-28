@@ -1,7 +1,7 @@
 import torch
 from graphviz import Digraph
 
-from nn import MLP
+from Micrograd.nn import MLP
 
 class PytorchNeuron:
     def __init__(self, neuron):

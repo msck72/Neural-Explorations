@@ -1,4 +1,4 @@
-from tensor_engine import Tensor
+from Micrograd.tensor_engine import Tensor
 
 def fill_tensor_with_value(tensor, shape, value):
     if len(shape) == 1:

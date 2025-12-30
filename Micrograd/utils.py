@@ -3,6 +3,33 @@ from graphviz import Digraph
 
 from Micrograd.nn import MLP
 
+def format_tensor(data, indent=0):
+    if not isinstance(data, list):
+        return str(data)
+
+    indent_str = " " * indent
+    inner_indent = " " * (indent + 4)
+
+    lines = []
+    for item in data:
+        if isinstance(item, list):
+            lines.append(format_tensor(item, indent + 4))
+        else:
+            lines.append(_format_number(item))
+
+    if any(isinstance(i, list) for i in data):
+        joined = ",\n".join(inner_indent + l for l in lines)
+        return "[\n" + joined + "\n" + indent_str + "]"
+    else:
+        return "[" + ", ".join(lines) + "]"
+
+
+def _format_number(x):
+    if isinstance(x, float):
+        return f"{x:.5f}"
+    return str(x)
+
+
 class PytorchNeuron:
     def __init__(self, neuron):
         self.weights = [torch.tensor(w.data, requires_grad=True) for w in neuron.weights]

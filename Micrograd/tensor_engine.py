@@ -1,7 +1,8 @@
 # Tesnor as a multidimensional array
 import math
 import random
-from pprint import pformat
+
+from Micrograd.utils import format_tensor
 
 class Tensor:
     def __init__(self, shape, formed_by=(), op=None):
@@ -64,6 +65,40 @@ class Tensor:
             # other.grad = out.grad
             _helper(self.grad, out.grad, self.shape)
             _helper(other.grad, out.grad, other.shape)
+
+        out._backward = _backward
+        return out
+
+    def __sub__(self, other):
+        if self.shape != other.get_shape():
+            raise Exception('Shape does not match')
+
+        out = Tensor(self.shape)
+        out.from_values(
+            tensor=self._apply_on_tensor_parts(self.tensor, other.tensor, lambda x, y: x - y),
+            formed_by=(self, other),
+            op='-'
+        )
+
+        def _helper_add(grad, chained_grad, shape):
+            if len(shape) == 1:
+                for i in range(len(chained_grad)):
+                    grad[i] += chained_grad[i]
+                return
+            for i in range(len(grad)):
+                _helper_add(grad[i], chained_grad[i], shape[1:])
+
+        def _helper_sub(grad, chained_grad, shape):
+            if len(shape) == 1:
+                for i in range(len(chained_grad)):
+                    grad[i] -= chained_grad[i]
+                return
+            for i in range(len(grad)):
+                _helper_sub(grad[i], chained_grad[i], shape[1:])
+
+        def _backward():
+            _helper_add(self.grad, out.grad, self.shape)
+            _helper_sub(other.grad, out.grad, other.shape)
 
         out._backward = _backward
         return out
@@ -166,30 +201,17 @@ class Tensor:
                     build_topo(child)
                 topo.append(v)
         build_topo(self)
-
-        print(f'len(topo) = {len(topo)}')
-        for v in reversed(topo):
-            print(f'v = {v}\n\n')
             
         # print(topo)
         self._set_grad_to_one()
-        for v in reversed(topo):
+        for i, v in enumerate(reversed(topo)):
             # print(f'v = {v}\n\n')
             v._backward()
 
 
     def __repr__(self):
-        return pformat(self.tensor)
-        # return self._get_tensor_str(self.tensor)
-    
-    def _get_tensor_str(self, tensor_part):
-        if type(tensor_part) is float:
-            return f'{tensor_part:.4f}'
-        ans = '['
-        for i in tensor_part:
-            ans += f' {self._get_tensor_str(i)}'
-        return ans + '],\n'
-
+        formatted = format_tensor(self.tensor)
+        return f"tensor({formatted})"
 
 def transpose(mat):
     return list(map(list, zip(*mat)))

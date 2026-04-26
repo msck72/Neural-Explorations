@@ -13,12 +13,12 @@ using namespace std;
 namespace py = pybind11;
 
 
-struct InferenceTensor {
+struct _InferenceTensor {
     vector<double> data;
     vector<size_t> shape;
     vector<size_t> strides;
 
-    InferenceTensor(vector<size_t> shape) : shape(shape) {
+    _InferenceTensor(vector<size_t> shape) : shape(shape) {
         int total = 1;
         for(int i = 0; i < shape.size(); i++){
             total *= shape[i];
@@ -53,37 +53,37 @@ struct InferenceTensor {
         return flat;
     }
 
-    InferenceTensor apply(const InferenceTensor& other, function<double(double, double)> op) const {
+    _InferenceTensor apply(const _InferenceTensor& other, function<double(double, double)> op) const {
         if (shape != other.shape) throw runtime_error("Shape mismatch");
-        InferenceTensor out(shape);
+        _InferenceTensor out(shape);
         for (size_t i = 0; i < data.size(); ++i)
             out.data[i] = op(data[i], other.data[i]);
         return out;
     }
 
-    InferenceTensor apply(function<double(double)> op) const {
-        InferenceTensor out(shape);
+    _InferenceTensor apply(function<double(double)> op) const {
+        _InferenceTensor out(shape);
         for (size_t i = 0; i < data.size(); ++i)
             out.data[i] = op(data[i]);
         return out;
     }
 
-    InferenceTensor operator+(const InferenceTensor& o) const {
+    _InferenceTensor operator+(const _InferenceTensor& o) const {
         return apply(o, [](double a, double b){ return a + b; }); 
     }
-    InferenceTensor operator-(const InferenceTensor& o) const { 
+    _InferenceTensor operator-(const _InferenceTensor& o) const { 
         return apply(o, [](double a, double b){ return a - b; }); 
     }
-    InferenceTensor operator*(const InferenceTensor& o) const { 
+    _InferenceTensor operator*(const _InferenceTensor& o) const { 
         return apply(o, [](double a, double b){ return a * b; }); 
     }
 
-    InferenceTensor matmul(const InferenceTensor& other) const {
+    _InferenceTensor matmul(const _InferenceTensor& other) const {
         if (shape.size() != 2 || other.shape.size() != 2 || shape[1] != other.shape[0])
             throw runtime_error("Invalid shapes for matmul");
 
         size_t M = shape[0], K = shape[1], N = other.shape[1];
-        InferenceTensor out({M, N});
+        _InferenceTensor out({M, N});
         fill(out.data.begin(), out.data.end(), 0.0);
 
         for (size_t i = 0; i < M; ++i)
@@ -93,14 +93,14 @@ struct InferenceTensor {
         return out;
     }
 
-    InferenceTensor tanh() const {
+    _InferenceTensor tanh() const {
         return apply([](double x){ return ::tanh(x); });
     }
 
-    InferenceTensor transpose() const {
-        if (shape.size() != 2) throw runtime_error("Transpose only for 2D InferenceTensors");
+    _InferenceTensor transpose() const {
+        if (shape.size() != 2) throw runtime_error("Transpose only for 2D _InferenceTensors");
         size_t rows = shape[0], cols = shape[1];
-        InferenceTensor out({cols, rows});
+        _InferenceTensor out({cols, rows});
         for (size_t i = 0; i < rows; ++i)
             for (size_t j = 0; j < cols; ++j)
                 out.data[j * rows + i] = data[i * cols + j];
@@ -108,7 +108,7 @@ struct InferenceTensor {
     }
 
     void print() const {
-        cout << "InferenceTensor(shape=[";
+        cout << "_InferenceTensor(shape=[";
         for (size_t i = 0; i < shape.size(); ++i)
             cout << shape[i] << (i + 1 < shape.size() ? ", " : "");
         cout << "], data=[\n";
@@ -133,31 +133,32 @@ struct InferenceTensor {
     }
 };
 
-PYBIND11_MODULE(inference_tensor, m) {
-    py::class_<InferenceTensor>(m, "InferenceTensor")
+PYBIND11_MODULE(inference_tensor_cpp, m) {
+    py::class_<_InferenceTensor>(m, "_InferenceTensor")
         .def(py::init<vector<size_t>>())
-        .def("matmul", &InferenceTensor::matmul)
-        .def("tanh", &InferenceTensor::tanh)
-        .def("transpose", &InferenceTensor::transpose)
-        .def("print", &InferenceTensor::print)
+        .def("matmul", &_InferenceTensor::matmul)
+        .def("tanh", &_InferenceTensor::tanh)
+        .def("transpose", &_InferenceTensor::transpose)
+        .def("print", &_InferenceTensor::print)
+        .def("flat_index", &_InferenceTensor::flat_index)
         .def(py::self + py::self)
         .def(py::self - py::self)
         .def(py::self * py::self)
-        .def_readonly("data", &InferenceTensor::data)
-        .def_readonly("shape", &InferenceTensor::shape)
-        .def_readonly("strides", &InferenceTensor::strides);
+        .def_readonly("data", &_InferenceTensor::data)
+        .def_readonly("shape", &_InferenceTensor::shape)
+        .def_readonly("strides", &_InferenceTensor::strides);
 }
 
 int main() {
-    InferenceTensor a({4}), b({4});
+    _InferenceTensor a({4}), b({4});
     cout << "1D Add: \n";
     (a + b).print();
 
-    InferenceTensor m1({2, 3}), m2({2, 3});
+    _InferenceTensor m1({2, 3}), m2({2, 3});
     cout << "\n2D Elementwise Mul:\n";
     (m1 * m2).print();
 
-    InferenceTensor lhs({2, 3}), rhs({3, 2});
+    _InferenceTensor lhs({2, 3}), rhs({3, 2});
     cout << "\nMatmul (2x3) @ (3x2):\n";
     lhs.matmul(rhs).print();
 

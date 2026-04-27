@@ -19,10 +19,7 @@ struct _InferenceTensor {
     vector<size_t> strides;
 
     _InferenceTensor(vector<size_t> shape) : shape(shape) {
-        int total = 1;
-        for(int i = 0; i < shape.size(); i++){
-            total *= shape[i];
-        }
+        int total = set_shape(shape);
         
         data.resize(total);
 
@@ -34,6 +31,21 @@ struct _InferenceTensor {
         }
 
         compute_strides();
+    }
+
+    _InferenceTensor(vector<size_t> shape, double value) : shape(shape) {
+        int total = set_shape(shape);
+        
+        data.resize(total, value);
+        compute_strides();
+    }
+
+    int set_shape(vector<size_t> new_shape) {
+        int total = 1;
+        for(int i = 0; i < shape.size(); i++){
+            total *= shape[i];
+        }
+        return total;
     }
 
     void compute_strides() {
@@ -51,6 +63,20 @@ struct _InferenceTensor {
             flat += idx[i] * strides[i];
         }
         return flat;
+    }
+
+    double get_item(const vector<size_t>& idx) const {
+        return data[flat_index(idx)];
+    }
+
+    void set_item(const vector<size_t>& idx, double value) {
+        data[flat_index(idx)] = value;
+    }
+
+    void set_values(const vector<double>& flat_values) {
+        if (flat_values.size() != data.size())
+            throw runtime_error("Size mismatch");
+        data = flat_values;
     }
 
     _InferenceTensor apply(const _InferenceTensor& other, function<double(double, double)> op) const {
@@ -107,40 +133,45 @@ struct _InferenceTensor {
         return out;
     }
 
+    void print_rec(int dim, int indentation, int start) const {
+        for (int i = 0; i < indentation; i++) cout << " ";
+
+        if (dim == (int)strides.size() - 1) {
+            cout << "[";
+            for (int i = 0; i < (int)shape[dim]; i++)
+                cout << data[start + i] << (i + 1 < (int)shape[dim] ? ", " : "");
+            cout << "]\n";
+            return;
+        }
+
+        cout << "[\n";
+        for (int i = 0; i < (int)shape[dim]; i++)
+            print_rec(dim + 1, indentation + 2, start + strides[dim] * i);
+        for (int i = 0; i < indentation; i++) cout << " ";
+        cout << "],\n";
+    }
+
     void print() const {
         cout << "_InferenceTensor(shape=[";
         for (size_t i = 0; i < shape.size(); ++i)
             cout << shape[i] << (i + 1 < shape.size() ? ", " : "");
-        cout << "], data=[\n";
-
-        if (shape.size() == 1) {
-            cout << "  ";
-            for (size_t i = 0; i < data.size(); ++i)
-                cout << data[i] << (i + 1 < data.size() ? ", " : "");
-            cout << "\n";
-        } else if (shape.size() == 2) {
-            size_t cols = shape[1];
-            for (size_t i = 0; i < shape[0]; ++i) {
-                cout << "  ";
-                for (size_t j = 0; j < cols; ++j)
-                    cout << data[i * cols + j] << (j + 1 < cols ? ", " : "");
-                cout << "\n";
-            }
-        } else {
-            for (auto v : data) cout << "  " << v << "\n";
-        }
         cout << "])\n";
+        print_rec(0, 0, 0);
     }
 };
 
 PYBIND11_MODULE(inference_tensor_cpp, m) {
     py::class_<_InferenceTensor>(m, "_InferenceTensor")
         .def(py::init<vector<size_t>>())
+        .def(py::init<vector<size_t>, double>())
         .def("matmul", &_InferenceTensor::matmul)
         .def("tanh", &_InferenceTensor::tanh)
         .def("transpose", &_InferenceTensor::transpose)
         .def("print", &_InferenceTensor::print)
         .def("flat_index", &_InferenceTensor::flat_index)
+        .def("get_item", &_InferenceTensor::get_item)
+        .def("set_item", &_InferenceTensor::set_item)
+        .def("set_values", &_InferenceTensor::set_values)
         .def(py::self + py::self)
         .def(py::self - py::self)
         .def(py::self * py::self)
@@ -167,6 +198,9 @@ int main() {
 
     cout << "\nTranspose: \n";
     lhs.transpose().print();
+
+
+    _InferenceTensor t({2, 2}, 1.0);
 
     return 0;
 }

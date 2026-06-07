@@ -133,6 +133,10 @@ struct _InferenceTensor {
         return out;
     }
 
+    _InferenceTensor relu() const {
+        return apply([](double x){ return x > 0 ? x : 0; });
+    }
+
     void print_rec(int dim, int indentation, int start) const {
         for (int i = 0; i < indentation; i++) cout << " ";
 
@@ -167,6 +171,7 @@ PYBIND11_MODULE(inference_tensor_cpp, m) {
         .def("matmul", &_InferenceTensor::matmul)
         .def("tanh", &_InferenceTensor::tanh)
         .def("transpose", &_InferenceTensor::transpose)
+        .def("relu", &_InferenceTensor::relu)
         .def("print", &_InferenceTensor::print)
         .def("flat_index", &_InferenceTensor::flat_index)
         .def("get_item", &_InferenceTensor::get_item)

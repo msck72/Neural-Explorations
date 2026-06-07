@@ -10,6 +10,35 @@ class InferenceTensor(_InferenceTensor):
         if not isinstance(key, (list, tuple)):
             key = [key]
         self.set_item(list(key), value)
+    
+    def __matmul__(self, other):
+        res = _InferenceTensor.matmul(self, other)
+        out = InferenceTensor(list(res.shape))
+        _InferenceTensor.set_values(out, res.data)
+        return out
+
+    def __add__(self, other):
+        res = _InferenceTensor.__add__(self, other)
+        out = InferenceTensor(list(res.shape))
+        _InferenceTensor.set_values(out, res.data)
+        return out
+
+    def __sub__(self, other):
+        res = _InferenceTensor.__sub__(self, other)
+        out = InferenceTensor(list(res.shape))
+        _InferenceTensor.set_values(out, res.data)
+        return out
+
+    def __mul__(self, other):
+        res = _InferenceTensor.__mul__(self, other)
+        out = InferenceTensor(list(res.shape))
+        _InferenceTensor.set_values(out, res.data)
+        return out
+    
+    def __repr__(self):
+        # print("Calling __repr__")
+        self.print()
+        return ""
 
     def set_values(self, values):
         # print(f'self.shape: {self.shape}, values shape: {values.shape}')

@@ -89,6 +89,7 @@ class Conv3D:
                 for i in range(input_x - self.filter_size + 1):
                     for j in range(input_y - self.filter_size + 1):
                         futures.append(executor.submit(_convolve, i, j))
+        
         else:
             for i in range(input_x - self.filter_size + 1):
                 for j in range(input_y - self.filter_size + 1):
@@ -100,4 +101,48 @@ class Conv3D:
                     output_tensor[i, j] = temp
 
         return output_tensor
+
+
+class ConvLayer:
+    def __init__(self, num_layers, filter_size, depth, stride = 1, padding = 0):
+        self.filter_size = filter_size
+        self.num_layers = num_layers
+        self.depth = depth
+        self.stride = stride
+        self.padding = padding
+        self.conv_filters = [Conv3D(filter_size, depth) for _ in range(num_layers)]
+    
+    def set_values(self, filters: List[np.ndarray]):
+        assert len(filters) == self.num_layers, "Number of filters must match number of layers"
+        for i in range(self.num_layers):
+            self.conv_filters[i].set_filter(filters[i])
+
+    def __call__(self, input_tensor):
+        # avoidin calling conv call for each filter seperately as that is inefficient
+        
+        if self.padding > 0:
+            input_depth, input_x, input_y = input_tensor.shape
+            padded_input = InferenceTensor((input_depth, input_x + 2 * self.padding, input_y + 2 * self.padding))
+            for d in range(input_depth):
+                for i in range(input_x):
+                    for j in range(input_y):
+                        padded_input[d, i + self.padding, j + self.padding] = input_tensor[d, i, j]
+            input_tensor = padded_input
+        
+        input_depth, input_x, input_y = input_tensor.shape
+        output_tensor = InferenceTensor((self.num_layers, input_x - self.filter_size + 1, input_y - self.filter_size + 1))
+        def _apply_filter(r, c):
+            for layer, _c_f in enumerate(self.conv_filters):
+                value = 0
+                for i in range(r, r + self.filter_size, self.stride):
+                    for j in range(c, c + self.filter_size, self.stride):
+                        for k in range(0, self.depth):
+                            value += input_tensor[k, i, j] * _c_f.filter[k, i - r, j - c]
+                output_tensor[layer, r, c] = value
+        
+        for row in range(0, input_x - self.filter_size + 1):
+            for col in range(0, input_y - self.filter_size + 1):
+                _apply_filter(row, col)
+        return output_tensor
+
 

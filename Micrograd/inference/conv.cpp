@@ -22,7 +22,7 @@ struct ConvLayer{
     size_t stride;
     size_t padding;
 
-    vector<_InferenceTensor> conv_filters;
+    vector<InferenceTensor> conv_filters;
 
     ConvLayer(int num_layers, int filter_size, int depth, int stride = 1, int padding = 0)
         : num_layers(num_layers), filter_size(filter_size), depth(depth), stride(stride), padding(padding) {
@@ -51,13 +51,13 @@ struct ConvLayer{
         }
     }
 
-    _InferenceTensor operator()(const _InferenceTensor& input_tensor){
-        _InferenceTensor padded_input = input_tensor;
+    InferenceTensor operator()(const InferenceTensor& input_tensor){
+        InferenceTensor padded_input = input_tensor;
         if(padding > 0){
             size_t input_depth = input_tensor.shape[0];
             size_t input_x = input_tensor.shape[1];
             size_t input_y = input_tensor.shape[2];
-            padded_input = _InferenceTensor({input_depth, input_x + 2 * padding, input_y + 2 * padding});
+            padded_input = InferenceTensor({input_depth, input_x + 2 * padding, input_y + 2 * padding}, 0);
             for(size_t d = 0; d < input_depth; d++){
                 for(size_t i = 0; i < input_x; i++){
                     for(size_t j = 0; j < input_y; j++){
@@ -71,7 +71,7 @@ struct ConvLayer{
         size_t input_x = padded_input.shape[1];
         size_t input_y = padded_input.shape[2];
 
-        _InferenceTensor output_tensor({num_layers, (input_x - filter_size) / stride + 1, (input_y - filter_size) / stride + 1});
+        InferenceTensor output_tensor({num_layers, (input_x - filter_size) / stride + 1, (input_y - filter_size) / stride + 1});
 
         auto _apply_filter = [&](size_t r, size_t c){
             for(size_t layer = 0; layer < num_layers; layer++){
@@ -98,6 +98,15 @@ struct ConvLayer{
         }
         return output_tensor;
     }
+
+    string get_string() const {
+        stringstream ss;
+        for(size_t i = 0; i < num_layers; i++){
+            ss << "Filter " << i << ":\n";
+            ss << conv_filters[i].get_string() << "\n";
+        }
+        return ss.str();
+    }
 };
 
 
@@ -105,5 +114,7 @@ PYBIND11_MODULE(conv_cpp, m) {
     py::class_<ConvLayer>(m, "ConvLayer")
         .def(py::init<int, int, int, int, int>())
         .def("set_values", &ConvLayer::set_values)
-        .def("__call__", &ConvLayer::operator());
+        .def("__call__", &ConvLayer::operator())
+        .def("__repr__", &ConvLayer::get_string)
+        ;
 }

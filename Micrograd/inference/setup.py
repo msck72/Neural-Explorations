@@ -4,21 +4,28 @@ import pybind11
 ext_modules = [
     Extension(
         'inference_tensor',
-        ['inference_tensor.cpp'],
+        ['pybind_modules.cpp'],
         include_dirs=[pybind11.get_include()],
         language='c++',
         extra_compile_args=['-std=c++11'],
     ),
     Extension(
         'conv_cpp',
-        ['conv.cpp'],
+        ['pybind_modules.cpp'],
         include_dirs=[pybind11.get_include()],
         language='c++',
         extra_compile_args=['-std=c++11'],
     ),
     Extension(
         'pool_layers',
-        ['pool_layers.cpp'],
+        ['pybind_modules.cpp'],
+        include_dirs=[pybind11.get_include()],
+        language='c++',
+        extra_compile_args=['-std=c++11'],
+    ),
+    Extension(
+        'resnet',
+        ['pybind_modules.cpp'],
         include_dirs=[pybind11.get_include()],
         language='c++',
         extra_compile_args=['-std=c++11'],

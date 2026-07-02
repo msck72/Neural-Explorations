@@ -8,6 +8,7 @@
 #include <cmath>
 #include <random>
 #include <numeric>
+#include <sstream>
 
 using namespace std;
 
@@ -35,6 +36,15 @@ struct InferenceTensor {
         int total = set_shape(shape);
         
         data.resize(total, value);
+        compute_strides();
+    }
+
+    InferenceTensor(vector<size_t> shape, const vector<double>& values) : shape(shape) {
+        int total = set_shape(shape);
+        
+        if (values.size() != (int) total)
+            throw runtime_error("Size mismatch");
+        data = values;
         compute_strides();
     }
 
@@ -134,6 +144,10 @@ struct InferenceTensor {
 
     InferenceTensor relu() const {
         return apply([](double x){ return x > 0 ? x : 0; });
+    }
+
+    InferenceTensor flatten() const {
+        return InferenceTensor({data.size()}, data);
     }
 
     void print_rec(int dim, int indentation, int start) const {

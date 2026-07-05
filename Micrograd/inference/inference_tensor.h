@@ -103,6 +103,25 @@ struct InferenceTensor {
         return out;
     }
 
+    void apply_inplace(const InferenceTensor& other, function<double(double, double)> op) {
+        for(int i = other.shape.size() - 1; i >= 0; i--){
+            if(other.shape[i] != shape[i]){
+                throw runtime_error("Shape mismatch");
+            }
+        }
+
+        int iter_count = 1;
+        for(int i = 0; i < shape.size() - other.shape.size(); i++){
+            iter_count *= shape[i];
+        }
+
+        for(int i = 0; i < iter_count; i++){
+            for(int j = 0; j < other.data.size(); j++){
+                data[i * other.data.size() + j] = op(data[i * other.data.size() + j], other.data[j]);
+            }
+        }
+    }
+
     InferenceTensor operator+(const InferenceTensor& o) const {
         return apply(o, [](double a, double b){ return a + b; }); 
     }
@@ -111,6 +130,24 @@ struct InferenceTensor {
     }
     InferenceTensor operator*(const InferenceTensor& o) const { 
         return apply(o, [](double a, double b){ return a * b; }); 
+    }
+
+    void add_inplace(const InferenceTensor& o) { 
+        apply_inplace(o, [](double a, double b){ return a + b; }); 
+    }
+    void sub_inplace(const InferenceTensor& o) { 
+        apply_inplace(o, [](double a, double b){ return a - b; }); 
+    }
+    void mul_inplace(const InferenceTensor& o) {    
+        apply_inplace(o, [](double a, double b){ return a * b; }); 
+    }
+    void div_inplace(const InferenceTensor& o) {    
+        apply_inplace(o, [](double a, double b){ return a / b; }); 
+    }
+    void sqrt_inplace() {    
+        for(size_t i = 0; i < data.size(); i++){
+            data[i] = sqrt(data[i]);
+        }
     }
 
     InferenceTensor matmul(const InferenceTensor& other) const {

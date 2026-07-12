@@ -28,12 +28,14 @@ struct BN_layer{
     }
     
     InferenceTensor operator()(InferenceTensor input_tensor){
-        input_tensor.sub_inplace(running_mean);
-        running_var.add_inplace(InferenceTensor(running_var.shape, 1e-5));
+        // cout << "BN_layer: Input shape " << input_tensor.shape[0] << " " << input_tensor.shape[1] << " " << input_tensor.shape[2] << "\n" << flush;
+        // cout << "BN_layer: running_mean shape " << running_mean.shape[0] << "\n" << flush;
+        input_tensor.sub_channelwise_inplace(running_mean);
+        running_var.add_channelwise_inplace(InferenceTensor(running_var.shape, 1e-5));
         running_var.sqrt_inplace();
-        input_tensor.div_inplace(running_var);
-        input_tensor.mul_inplace(weight);
-        input_tensor.add_inplace(bias);
+        input_tensor.div_channelwise_inplace(running_var);
+        input_tensor.mul_channelwise_inplace(weight);
+        input_tensor.add_channelwise_inplace(bias);
         return input_tensor;
     }
 };
@@ -55,8 +57,7 @@ struct BasicBlock{
     )
         : conv1(output_channels, 3, input_channels, stride, 1),
         conv2(output_channels, 3, output_channels, 1, 1),
-        conv3(output_channels, 1, input_channels, stride, 0),
-        bn_layer{BN_layer(output_channels), BN_layer(output_channels)}
+        conv3(output_channels, 1, input_channels, stride, 0)
     {
         this->input_channels = input_channels;
         this->output_channels = output_channels;
@@ -68,6 +69,12 @@ struct BasicBlock{
         // if(input_channels != output_channels){
         //     conv3 = ConvLayer(output_channels, 1, input_channels, stride, 0);
         // }
+        bn_layer.clear();
+        bn_layer.emplace_back(output_channels);
+        bn_layer.emplace_back(output_channels);
+        if (input_channels != output_channels) {
+            bn_layer.emplace_back(output_channels);
+        }
 
     }
 
@@ -75,17 +82,55 @@ struct BasicBlock{
         assert(input_tensor.shape[0] == input_channels);
 
         InferenceTensor out = conv1(input_tensor);
+        cout << "basic block, conv1 completed, trying bn_layer[0]...\n" << flush;
         out = bn_layer[0](out);
+        cout << "basic block, bn_layer[0] completed, trying relu...\n" << flush;
         out = out.relu();
+        cout << "basic block, relu completed, trying conv2, out.shape = " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
         out = conv2(out);
-        
+        cout << "basic block, conv2 completed, trying bn_layer[1]...\n" << flush;
+        out = bn_layer[1](out);
+
         InferenceTensor identity = input_tensor;
         if(input_channels != output_channels){
             identity = conv3(input_tensor);
+            identity = bn_layer[2](identity);
         }
         out = out + identity;
 
         out = out.relu();
+        return out;
+    }
+
+
+    InferenceTensor operator()(const InferenceTensor& input_tensor, map<string, InferenceTensor>& hooks, string block){
+        assert(input_tensor.shape[0] == input_channels);
+
+        InferenceTensor out = conv1(input_tensor);
+        hooks.emplace(block + "_conv1", out);
+        cout << "basic block, conv1 completed, trying bn_layer[0]...\n" << flush;
+        out = bn_layer[0](out);
+        hooks.emplace(block + "_bn1", out);
+        cout << "basic block, bn_layer[0] completed, trying relu...\n" << flush;
+        out = out.relu();
+        hooks.emplace(block + "_relu", out);
+        cout << "basic block, relu completed, trying conv2, out.shape = " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
+        out = conv2(out);
+        hooks.emplace(block + "_conv2", out);
+        out = bn_layer[1](out);
+        hooks.emplace(block + "_bn2", out);
+        cout << "basic block, conv2 completed, trying bn_layer[1]...\n" << flush;
+        
+        InferenceTensor identity = input_tensor;
+        if(input_channels != output_channels){
+            identity = conv3(input_tensor);
+            identity = bn_layer[2](identity);
+        }
+        out = out + identity;
+        hooks.emplace(block + "_identity", out);
+
+        out = out.relu();
+        hooks.emplace(block + "_relu_2", out);
         return out;
     }
 };
@@ -99,24 +144,64 @@ struct Stem{
     Stem(int in_channels, int out_channels, int kernel_size, int conv_stride, int conv_padding, int pool_kernel_size, int pool_stride, int pool_padding): conv(out_channels, kernel_size, in_channels, conv_stride, conv_padding), pool(pool_kernel_size, pool_stride, pool_padding), bn_layer(out_channels) {}
 
     InferenceTensor operator()(const InferenceTensor& input_tensor){
+        cout << "Stem: Input shape " << input_tensor.shape[0] << " " << input_tensor.shape[1] << " " << input_tensor.shape[2] << "\n" << flush;
+        cout << "Stem: Calling conv...\n" << flush;
         InferenceTensor out = conv(input_tensor);
+        cout << "Stem: Conv done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
+        cout << "Stem: Calling bn_layer...\n" << flush;
         out = bn_layer(out);
+        cout << "Stem: BN done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
+        cout << "Stem: Calling relu...\n" << flush;
         out = out.relu();
+        cout << "Stem: ReLU done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
+        cout << "Stem: Calling pool...\n" << flush;
         out = pool(out);
+        cout << "Stem: Pool done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
         return out;
     }
 };
 
 struct ClassifierHead{
     AdaptiveAvgPoolLayer pool;
-    InferenceTensor FC;
+    InferenceTensor FC_weight;
+    InferenceTensor FC_bias;
 
-    ClassifierHead(size_t in_channels, size_t num_classes): pool(1), FC({in_channels, num_classes}){}
+    ClassifierHead(size_t in_channels, size_t num_classes): pool(1), FC_weight({num_classes, in_channels}), FC_bias({num_classes}){}
 
     InferenceTensor operator()(const InferenceTensor& input_tensor){
         InferenceTensor out = pool(input_tensor);
+        cout << "ClassifierHead: Pooling done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
         out = out.flatten();
-        out = out.matmul(FC);
+        out.reshape({out.shape[0], 1});
+        // cout << "ClassifierHead: Flattening done. Shape: " << out.shape[0] << " " << out.shape[1] << ", FC.shape: " << FC.shape[0] << " " << FC.shape[1] << "\n" << flush;
+        out = FC_weight.matmul(out);
+        out = out + FC_bias;
+        // cout << "ClassifierHead: Matmul done. Shape: " << out.shape[0] << " " << out.shape[1] << "\n" << flush;
+        return out;
+    }
+
+    InferenceTensor operator()(const InferenceTensor& input_tensor, map<string, InferenceTensor>& hooks){
+        InferenceTensor out = pool(input_tensor);
+        hooks.emplace("avgpool", out);
+        cout << "ClassifierHead: Pooling done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
+        out = out.flatten();
+        cout << "Flattem done, shape = " << out.shape.size() << "\n";
+        out.reshape({out.shape[0], 1});
+        cout << "reshape done, shape = " << out.shape[0] << ", 1" << "\n"; 
+        // cout << "ClassifierHead: Flattening done. Shape: " << out.shape[0] << " " << out.shape[1] << ", FC.shape: " << FC.shape[0] << " " << FC.shape[1] << "\n" << flush;
+        out = FC_weight.matmul(out);
+        cout << "matmul done, shape = " << out.shape[0] << ", " << out.shape[1] << "\n";
+        out.reshape({out.shape[0]});
+        cout << "reshapeing done again\n";
+        try{
+            cout << "Trying adding bias \n";
+            out = out + FC_bias;
+            cout << "Bias added \n";
+        }
+        catch (int e) {
+            cout << "Exception Caught: " << e;
+        }
+        // cout << "ClassifierHead: Matmul done. Shape: " << out.shape[0] << " " << out.shape[1] << "\n" << flush;
         return out;
     }
 };

@@ -56,6 +56,15 @@ struct InferenceTensor {
         return total;
     }
 
+    int reshape(const vector<size_t>& new_shape) {
+        int total = set_shape(new_shape);
+        if (total != (int)data.size())
+            throw runtime_error("Size mismatch in reshape");
+        shape = new_shape;
+        compute_strides();
+        return total;
+    }
+
     void compute_strides() {
         strides.resize(shape.size());
         if (shape.empty()) return;
@@ -89,7 +98,7 @@ struct InferenceTensor {
     }
 
     InferenceTensor apply(const InferenceTensor& other, function<double(double, double)> op) const {
-        if (shape != other.shape) throw runtime_error("Shape mismatch");
+        if (shape != other.shape) throw runtime_error("Shape mismatch, expected " + to_string(shape.size()) + " dimensions, got " + to_string(other.shape.size()));
         InferenceTensor out(shape);
         for (size_t i = 0; i < data.size(); ++i)
             out.data[i] = op(data[i], other.data[i]);
@@ -103,9 +112,22 @@ struct InferenceTensor {
         return out;
     }
 
+    void apply_per_channel_inplace(const InferenceTensor& other, function<double(double, double)> op) {
+        if(shape[0] != other.shape[0] || other.shape.size() != 1){
+            throw runtime_error("Channel mismatch");
+        }
+
+        for(size_t c = 0; c < shape[0]; c++){
+            for(size_t i = 0; i < strides[0]; i++){
+                size_t flat_index = c * strides[0] + i;
+                data[flat_index] = op(data[flat_index], other.data[c]);
+            }
+        }
+    }
+
     void apply_inplace(const InferenceTensor& other, function<double(double, double)> op) {
-        for(int i = other.shape.size() - 1; i >= 0; i--){
-            if(other.shape[i] != shape[i]){
+        for(int i = other.shape.size() - 1, j = shape.size() - 1; i >= 0; i--, j--){
+            if(other.shape[i] != shape[j]){
                 throw runtime_error("Shape mismatch");
             }
         }
@@ -144,6 +166,21 @@ struct InferenceTensor {
     void div_inplace(const InferenceTensor& o) {    
         apply_inplace(o, [](double a, double b){ return a / b; }); 
     }
+
+
+    void add_channelwise_inplace(const InferenceTensor& o) { 
+        apply_per_channel_inplace(o, [](double a, double b){ return a + b; }); 
+    }
+    void sub_channelwise_inplace(const InferenceTensor& o) { 
+        apply_per_channel_inplace(o, [](double a, double b){ return a - b; }); 
+    }
+    void mul_channelwise_inplace(const InferenceTensor& o) {    
+        apply_per_channel_inplace(o, [](double a, double b){ return a * b; }); 
+    }
+    void div_channelwise_inplace(const InferenceTensor& o) {    
+        apply_per_channel_inplace(o, [](double a, double b){ return a / b; }); 
+    }
+
     void sqrt_inplace() {    
         for(size_t i = 0; i < data.size(); i++){
             data[i] = sqrt(data[i]);
@@ -185,6 +222,11 @@ struct InferenceTensor {
 
     InferenceTensor flatten() const {
         return InferenceTensor({data.size()}, data);
+    }
+
+    ssize_t argmax() const {
+        if (data.empty()) throw runtime_error("Cannot argmax an empty InferenceTensor");
+        return distance(data.begin(), max_element(data.begin(), data.end()));
     }
 
     void print_rec(int dim, int indentation, int start) const {

@@ -17,8 +17,11 @@ PYBIND11_MODULE(inference_tensor, m) {
         .def("tanh", &InferenceTensor::tanh)
         .def("transpose", &InferenceTensor::transpose)
         .def("relu", &InferenceTensor::relu)
+        .def("argmax", &InferenceTensor::argmax)
+        .def("reshape", &InferenceTensor::reshape)
         .def("print", &InferenceTensor::print)
         .def("__repr__", &InferenceTensor::get_string)
+        .def("get_string", &InferenceTensor::get_string)
         // .def("__repr__", [](const InferenceTensor &t){
         //     std::string s = "InferenceTensor(shape=[";
         //     for (size_t i = 0; i < t.shape.size(); ++i)
@@ -45,6 +48,7 @@ PYBIND11_MODULE(conv_cpp, m) {
         .def("set_values", &ConvLayer::set_values)
         .def("__call__", &ConvLayer::operator())
         .def("__repr__", &ConvLayer::get_string)
+        .def("get_shape", &ConvLayer::get_shape)
         ;
 }
 
@@ -78,7 +82,7 @@ PYBIND11_MODULE(resnet, m) {
     
     py::class_<BasicBlock>(m, "BasicBlock")
         .def(py::init<size_t, size_t, size_t>())
-        .def("__call__", &BasicBlock::operator())
+        .def("__call__", (InferenceTensor (BasicBlock::*)(const InferenceTensor&)) &BasicBlock::operator())
         .def_readwrite("conv1", &BasicBlock::conv1)
         .def_readwrite("conv2", &BasicBlock::conv2)
         .def_readwrite("conv3", &BasicBlock::conv3)
@@ -87,9 +91,11 @@ PYBIND11_MODULE(resnet, m) {
     
     py::class_<ClassifierHead>(m, "ClassifierHead")
         .def(py::init<size_t, size_t>())
-        .def("__call__", &ClassifierHead::operator())
+        .def("__call__", (InferenceTensor (ClassifierHead::*)(const InferenceTensor&)) &ClassifierHead::operator())
+        .def("__call__", (InferenceTensor (ClassifierHead::*)(const InferenceTensor&, map<string, InferenceTensor>&)) &ClassifierHead::operator())
         .def_readwrite("pool", &ClassifierHead::pool)
-        .def_readwrite("FC", &ClassifierHead::FC)
+        .def_readwrite("FC_weight", &ClassifierHead::FC_weight)
+        .def_readwrite("FC_bias", &ClassifierHead::FC_bias)
         ;
     
     py::class_<ResNet18>(m, "ResNet18")

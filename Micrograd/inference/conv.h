@@ -50,8 +50,10 @@ struct ConvLayer{
     }
 
     InferenceTensor operator()(const InferenceTensor& input_tensor){
+        // cout << "Conv: Input shape " << input_tensor.shape[0] << " " << input_tensor.shape[1] << " " << input_tensor.shape[2] << "\n" << flush;
         InferenceTensor padded_input = input_tensor;
         if(padding > 0){
+            // cout << "Conv: Padding input with padding = " << padding << "\n" << flush;
             size_t input_depth = input_tensor.shape[0];
             size_t input_x = input_tensor.shape[1];
             size_t input_y = input_tensor.shape[2];
@@ -59,11 +61,18 @@ struct ConvLayer{
             for(size_t d = 0; d < input_depth; d++){
                 for(size_t i = 0; i < input_x; i++){
                     for(size_t j = 0; j < input_y; j++){
-                        padded_input.set_item({d, i + padding, j + padding}, input_tensor.get_item({d, i, j}));
+                        try{
+                            padded_input.set_item({d, i + padding, j + padding}, input_tensor.get_item({d, i, j}));
+                        } catch (const std::exception& e) {
+                            std::cerr << "Error setting padded input at depth: " << d << ", row: " << i + padding << ", col: " << j + padding << ": " << e.what() << std::endl;
+                        }
+                        // padded_input.set_item({d, i + padding, j + padding}, input_tensor.get_item({d, i, j}));
                     }
                 }
             }
         }
+
+        // cout << "Conv: Padded input shape " << padded_input.shape[0] << " " << padded_input.shape[1] << " " << padded_input.shape[2] << "\n" << flush;
 
         size_t input_depth = padded_input.shape[0];
         size_t input_x = padded_input.shape[1];
@@ -71,17 +80,33 @@ struct ConvLayer{
 
         InferenceTensor output_tensor({num_layers, (input_x - filter_size) / stride + 1, (input_y - filter_size) / stride + 1});
 
+        // cout << "Conv: num_layers=" << num_layers << " filter_size=" << filter_size << " depth=" << depth << " stride=" << stride << "\n" << flush;
+        // cout << "Conv: padded input shape: " << padded_input.shape[0] << " " << padded_input.shape[1] << " " << padded_input.shape[2] << "\n" << flush;
+        // cout << "Conv: conv_filters.size()=" << conv_filters.size() << "\n" << flush;
+        // if(conv_filters.size() > 0){
+        //     cout << "Conv: conv_filters[0] shape: " << conv_filters[0].shape[0] << " " << conv_filters[0].shape[1] << " " << conv_filters[0].shape[2] << "\n" << flush;
+        // }
+
         auto _apply_filter = [&](size_t r, size_t c){
             for(size_t layer = 0; layer < num_layers; layer++){
                 double value = 0;
                 for(size_t i = r; i < r + filter_size; i++){
                     for(size_t j = c; j < c + filter_size; j++){
                         for(size_t k = 0; k < depth; k++){
-                            value += padded_input.get_item({k, i, j}) * conv_filters[layer].get_item({k, i - r, j - c});
+                            try{
+                                value += padded_input.get_item({k, i, j}) * conv_filters[layer].get_item({k, i - r, j - c});
+                            } catch (const std::exception& e) {
+                                std::cerr << "Error getting item at layer k: " << k << ", i: " << i << ", j " << j << std::endl;
+                            }
                         }
                     }
                 }
-                output_tensor.set_item({layer, r / stride, c / stride}, value);
+                try{
+                    output_tensor.set_item({layer, r / stride, c / stride}, value);
+                } catch (const std::exception& e) {
+                    std::cerr << "Error setting item at layer " << layer << ", row " << r / stride << ", col " << c / stride << ": " << e.what() << std::endl;
+                }
+                // output_tensor.set_item({layer, r / stride, c / stride}, value);
             }
         };
 
@@ -93,7 +118,9 @@ struct ConvLayer{
             for(auto& t : threads){
                 t.join();
             }
+            // cout << "Conv: Finished processing row " << row << "\n" << flush;
         }
+        // cout << "Conv completed, returning tensor" << "\n";
         return output_tensor;
     }
 
@@ -104,5 +131,9 @@ struct ConvLayer{
             ss << conv_filters[i].get_string() << "\n";
         }
         return ss.str();
+    }
+
+    string get_shape() const {
+        return "[" + to_string(num_layers) + ", " + to_string(depth) + ", " + to_string(filter_size) + ", " + to_string(depth) + "]";
     }
 };

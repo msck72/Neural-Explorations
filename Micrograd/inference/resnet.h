@@ -32,12 +32,34 @@ struct ResNet18{
         blocks.emplace_back(BasicBlock(512, 512, 1));
     }
 
-    InferenceTensor operator()(const InferenceTensor& input_tensor){
-        InferenceTensor out = input_tensor;
+    pair<InferenceTensor, map<string, InferenceTensor>> operator()(const InferenceTensor& input_tensor){
+        cout << "Entering ResNet18 operator()\n" << flush;
+        cout << "Input tensor shape: " << input_tensor.shape[0] << " " << input_tensor.shape[1] << " " << input_tensor.shape[2] << "\n" << flush;
+        
+        cout << "Calling stem...\n" << flush;
+        map<string, InferenceTensor> activations;  // To store intermediate activations
+        InferenceTensor out = stem(input_tensor);
+        activations.emplace("stem", out);  // Store the output of the stem
+        
+        int cntr = 0;
         for(auto& block : blocks){
-            out = block(out);
+            if(cntr == 0){
+                out = block(out, activations, "block_0");
+            }
+            else if(cntr == 1){
+                out = block(out, activations, "block_1");
+            }
+            else{
+                out = block(out);
+            }
+            activations.emplace("block_" + to_string(cntr), out);  // Store the output of each block
+            cntr++;
         }
-        return out;
+        cout << "All blocks done. Calling classifier head...\n" << flush;
+        out = classifier_head(out, activations);
+        activations.emplace("fc_output", out);  // Store the output of the classifier head
+        cout << "ResNet18 forward pass complete\n" << flush;
+        return {out, activations};  // Return both the final output and the activations
     }
 
 };

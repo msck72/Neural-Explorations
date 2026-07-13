@@ -1,12 +1,15 @@
 import torchvision.models as models
+import logging
 
 from inference_tensor import InferenceTensor
 import conv_cpp
 import pool_layers
 from resnet import ResNet18
 
+logger = logging.getLogger(__name__)
+
 def build_resnet18_from_torch():
-    print("Loading pretrained resnet's torch weights into the InferenceEngine...", flush=True)
+    logger.info("Loading pretrained resnet's torch weights into the InferenceEngine...")
     torch_model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
     torch_model.eval()
 
@@ -27,10 +30,9 @@ def build_resnet18_from_torch():
                     flat_values = v.detach().numpy().ravel().tolist()
                     getattr(model.classifier_head, f"FC_{ls[-1]}").set_values(flat_values)
                 except Exception as e:
-                    print(f"Error setting the FC layer for {k}: {e}")
-                    print('Expected torch shape:', v.shape)
-                    print('Custom tensor shape:', getattr(model.classifier_head, f"FC_{ls[-1]}").shape)
-                    exit()
+                    logger.error(f"Error setting the FC layer for {k}: {e}")
+                    logger.error('Expected torch shape:', v.shape)
+                    logger.error('Custom tensor shape:', getattr(model.classifier_head, f"FC_{ls[-1]}").shape)
                 
             continue
         
@@ -41,8 +43,8 @@ def build_resnet18_from_torch():
             try:
                 getattr(model.blocks[ln].bn_layers[0 if '1' in ls[2] else 1], f"{ls[-1]}").set_values(v.detach().numpy().tolist())
             except Exception as e:
-                print(f"Error setting values for {k}: {e}", flush=True)
-                print(f'expected shape: {getattr(model.blocks[ln].bn_layers[0 if "1" in ls[2] else 1], f"{ls[-1]}").shape}, actual shape: {v.shape}', flush=True)
+                logger.error(f"Error setting values for {k}: {e}", flush=True)
+                logger.error(f'expected shape: {getattr(model.blocks[ln].bn_layers[0 if "1" in ls[2] else 1], f"{ls[-1]}").shape}, actual shape: {v.shape}', flush=True)
                 break
         elif('downsample' in k):
             if(ls[3] == '0'):
@@ -50,5 +52,5 @@ def build_resnet18_from_torch():
             else:
                 getattr(model.blocks[ln].bn_layers[2], f"{ls[-1]}").set_values(v.detach().numpy().tolist())
 
-    print('Loaded pretrained resnet weights into InferenceEngine')
+    logger.info('Loaded pretrained resnet weights into InferenceEngine')
     return model

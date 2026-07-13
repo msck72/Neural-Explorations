@@ -38,7 +38,7 @@ struct ResNet18{
         for(auto& block : blocks){
             out = block(out);
         }
-        out = classifier_head(out, activations);
+        out = classifier_head(out);
         return out;
     }
 

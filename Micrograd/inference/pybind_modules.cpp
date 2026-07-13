@@ -100,7 +100,8 @@ PYBIND11_MODULE(resnet, m) {
     
     py::class_<ResNet18>(m, "ResNet18")
         .def(py::init<>())
-        .def("__call__", &ResNet18::operator())
+        .def("__call__", (InferenceTensor (ResNet18::*)(const InferenceTensor&)) &ResNet18::operator())
+        .def("__call__", (InferenceTensor (ResNet18::*)(const InferenceTensor&, map<string, InferenceTensor>&)) &ResNet18::operator())
         .def_readwrite("stem", &ResNet18::stem)
         .def_readwrite("blocks", &ResNet18::blocks)
         .def_readwrite("classifier_head", &ResNet18::classifier_head)

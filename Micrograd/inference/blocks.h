@@ -28,8 +28,6 @@ struct BN_layer{
     }
     
     InferenceTensor operator()(InferenceTensor input_tensor){
-        // cout << "BN_layer: Input shape " << input_tensor.shape[0] << " " << input_tensor.shape[1] << " " << input_tensor.shape[2] << "\n" << flush;
-        // cout << "BN_layer: running_mean shape " << running_mean.shape[0] << "\n" << flush;
         input_tensor.sub_channelwise_inplace(running_mean);
         running_var.add_channelwise_inplace(InferenceTensor(running_var.shape, 1e-5));
         running_var.sqrt_inplace();
@@ -63,12 +61,7 @@ struct BasicBlock{
         this->output_channels = output_channels;
         this->stride = stride;
         this->padding = padding;
-        // conv1 = ConvLayer(output_channels, 3, input_channels, stride, 1);
-        // conv2 = ConvLayer(output_channels, 3, output_channels, 1, 1);
         
-        // if(input_channels != output_channels){
-        //     conv3 = ConvLayer(output_channels, 1, input_channels, stride, 0);
-        // }
         bn_layer.clear();
         bn_layer.emplace_back(output_channels);
         bn_layer.emplace_back(output_channels);
@@ -82,13 +75,9 @@ struct BasicBlock{
         assert(input_tensor.shape[0] == input_channels);
 
         InferenceTensor out = conv1(input_tensor);
-        cout << "basic block, conv1 completed, trying bn_layer[0]...\n" << flush;
         out = bn_layer[0](out);
-        cout << "basic block, bn_layer[0] completed, trying relu...\n" << flush;
         out = out.relu();
-        cout << "basic block, relu completed, trying conv2, out.shape = " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
         out = conv2(out);
-        cout << "basic block, conv2 completed, trying bn_layer[1]...\n" << flush;
         out = bn_layer[1](out);
 
         InferenceTensor identity = input_tensor;
@@ -104,6 +93,7 @@ struct BasicBlock{
 
 
     InferenceTensor operator()(const InferenceTensor& input_tensor, map<string, InferenceTensor>& hooks, string block){
+        // For debugging purposes, something like pytorch hooks...
         assert(input_tensor.shape[0] == input_channels);
 
         InferenceTensor out = conv1(input_tensor);
@@ -144,19 +134,10 @@ struct Stem{
     Stem(int in_channels, int out_channels, int kernel_size, int conv_stride, int conv_padding, int pool_kernel_size, int pool_stride, int pool_padding): conv(out_channels, kernel_size, in_channels, conv_stride, conv_padding), pool(pool_kernel_size, pool_stride, pool_padding), bn_layer(out_channels) {}
 
     InferenceTensor operator()(const InferenceTensor& input_tensor){
-        cout << "Stem: Input shape " << input_tensor.shape[0] << " " << input_tensor.shape[1] << " " << input_tensor.shape[2] << "\n" << flush;
-        cout << "Stem: Calling conv...\n" << flush;
         InferenceTensor out = conv(input_tensor);
-        cout << "Stem: Conv done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
-        cout << "Stem: Calling bn_layer...\n" << flush;
         out = bn_layer(out);
-        cout << "Stem: BN done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
-        cout << "Stem: Calling relu...\n" << flush;
         out = out.relu();
-        cout << "Stem: ReLU done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
-        cout << "Stem: Calling pool...\n" << flush;
         out = pool(out);
-        cout << "Stem: Pool done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
         return out;
     }
 };
@@ -170,17 +151,16 @@ struct ClassifierHead{
 
     InferenceTensor operator()(const InferenceTensor& input_tensor){
         InferenceTensor out = pool(input_tensor);
-        cout << "ClassifierHead: Pooling done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;
         out = out.flatten();
         out.reshape({out.shape[0], 1});
-        // cout << "ClassifierHead: Flattening done. Shape: " << out.shape[0] << " " << out.shape[1] << ", FC.shape: " << FC.shape[0] << " " << FC.shape[1] << "\n" << flush;
         out = FC_weight.matmul(out);
+        out.reshape({out.shape[0]});
         out = out + FC_bias;
-        // cout << "ClassifierHead: Matmul done. Shape: " << out.shape[0] << " " << out.shape[1] << "\n" << flush;
         return out;
     }
 
     InferenceTensor operator()(const InferenceTensor& input_tensor, map<string, InferenceTensor>& hooks){
+        // For debugging purposes, something like pytorch hooks...
         InferenceTensor out = pool(input_tensor);
         hooks.emplace("avgpool", out);
         cout << "ClassifierHead: Pooling done. Shape: " << out.shape[0] << " " << out.shape[1] << " " << out.shape[2] << "\n" << flush;

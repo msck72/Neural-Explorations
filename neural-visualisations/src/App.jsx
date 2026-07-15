@@ -11,7 +11,7 @@ function App() {
     <BrowserRouter>
         <Header />
 
-        <main>
+        <main className="pt-30">
           <Routes>
             <Route path="/" element={<ApplyFilters/>} />
             <Route path="/Classification" element={<Classification/>} />

@@ -13,7 +13,7 @@
 using namespace std;
 
 struct InferenceTensor {
-    vector<double> data;
+    vector<float> data;
     vector<size_t> shape;
     vector<size_t> strides;
 
@@ -23,7 +23,7 @@ struct InferenceTensor {
         data.resize(total);
 
         mt19937 rng(random_device{}());
-        uniform_real_distribution<double> dist(0.0, 1.0);
+        uniform_real_distribution<float> dist(0.0, 1.0);
 
         for(auto &v: data){
             v = dist(rng);
@@ -32,14 +32,14 @@ struct InferenceTensor {
         compute_strides();
     }
 
-    InferenceTensor(vector<size_t> shape, double value) : shape(shape) {
+    InferenceTensor(vector<size_t> shape, float value) : shape(shape) {
         int total = set_shape(shape);
         
         data.resize(total, value);
         compute_strides();
     }
 
-    InferenceTensor(vector<size_t> shape, const vector<double>& values) : shape(shape) {
+    InferenceTensor(vector<size_t> shape, const vector<float>& values) : shape(shape) {
         int total = set_shape(shape);
         
         if (values.size() != (int) total)
@@ -83,21 +83,21 @@ struct InferenceTensor {
         return flat;
     }
 
-    double get_item(const vector<size_t>& idx) const {
+    float get_item(const vector<size_t>& idx) const {
         return data[flat_index(idx)];
     }
 
-    void set_item(const vector<size_t>& idx, double value) {
+    void set_item(const vector<size_t>& idx, float value) {
         data[flat_index(idx)] = value;
     }
 
-    void set_values(const vector<double>& flat_values) {
+    void set_values(const vector<float>& flat_values) {
         if (flat_values.size() != data.size())
             throw runtime_error("Size mismatch");
         data = flat_values;
     }
 
-    InferenceTensor apply(const InferenceTensor& other, function<double(double, double)> op) const {
+    InferenceTensor apply(const InferenceTensor& other, function<float(float, float)> op) const {
         if (shape != other.shape) throw runtime_error("Shape mismatch, expected " + to_string(shape.size()) + " dimensions, got " + to_string(other.shape.size()));
         InferenceTensor out(shape);
         for (size_t i = 0; i < data.size(); ++i)
@@ -105,14 +105,14 @@ struct InferenceTensor {
         return out;
     }
 
-    InferenceTensor apply(function<double(double)> op) const {
+    InferenceTensor apply(function<float(float)> op) const {
         InferenceTensor out(shape);
         for (size_t i = 0; i < data.size(); ++i)
             out.data[i] = op(data[i]);
         return out;
     }
 
-    void apply_per_channel_inplace(const InferenceTensor& other, function<double(double, double)> op) {
+    void apply_per_channel_inplace(const InferenceTensor& other, function<float(float, float)> op) {
         if(shape[0] != other.shape[0] || other.shape.size() != 1){
             throw runtime_error("Channel mismatch");
         }
@@ -125,7 +125,7 @@ struct InferenceTensor {
         }
     }
 
-    void apply_inplace(const InferenceTensor& other, function<double(double, double)> op) {
+    void apply_inplace(const InferenceTensor& other, function<float(float, float)> op) {
         for(int i = other.shape.size() - 1, j = shape.size() - 1; i >= 0; i--, j--){
             if(other.shape[i] != shape[j]){
                 throw runtime_error("Shape mismatch");
@@ -145,40 +145,40 @@ struct InferenceTensor {
     }
 
     InferenceTensor operator+(const InferenceTensor& o) const {
-        return apply(o, [](double a, double b){ return a + b; }); 
+        return apply(o, [](float a, float b){ return a + b; }); 
     }
     InferenceTensor operator-(const InferenceTensor& o) const { 
-        return apply(o, [](double a, double b){ return a - b; }); 
+        return apply(o, [](float a, float b){ return a - b; }); 
     }
     InferenceTensor operator*(const InferenceTensor& o) const { 
-        return apply(o, [](double a, double b){ return a * b; }); 
+        return apply(o, [](float a, float b){ return a * b; }); 
     }
 
     void add_inplace(const InferenceTensor& o) { 
-        apply_inplace(o, [](double a, double b){ return a + b; }); 
+        apply_inplace(o, [](float a, float b){ return a + b; }); 
     }
     void sub_inplace(const InferenceTensor& o) { 
-        apply_inplace(o, [](double a, double b){ return a - b; }); 
+        apply_inplace(o, [](float a, float b){ return a - b; }); 
     }
     void mul_inplace(const InferenceTensor& o) {    
-        apply_inplace(o, [](double a, double b){ return a * b; }); 
+        apply_inplace(o, [](float a, float b){ return a * b; }); 
     }
     void div_inplace(const InferenceTensor& o) {    
-        apply_inplace(o, [](double a, double b){ return a / b; }); 
+        apply_inplace(o, [](float a, float b){ return a / b; }); 
     }
 
 
     void add_channelwise_inplace(const InferenceTensor& o) { 
-        apply_per_channel_inplace(o, [](double a, double b){ return a + b; }); 
+        apply_per_channel_inplace(o, [](float a, float b){ return a + b; }); 
     }
     void sub_channelwise_inplace(const InferenceTensor& o) { 
-        apply_per_channel_inplace(o, [](double a, double b){ return a - b; }); 
+        apply_per_channel_inplace(o, [](float a, float b){ return a - b; }); 
     }
     void mul_channelwise_inplace(const InferenceTensor& o) {    
-        apply_per_channel_inplace(o, [](double a, double b){ return a * b; }); 
+        apply_per_channel_inplace(o, [](float a, float b){ return a * b; }); 
     }
     void div_channelwise_inplace(const InferenceTensor& o) {    
-        apply_per_channel_inplace(o, [](double a, double b){ return a / b; }); 
+        apply_per_channel_inplace(o, [](float a, float b){ return a / b; }); 
     }
 
     void sqrt_inplace() {    
@@ -203,7 +203,7 @@ struct InferenceTensor {
     }
 
     InferenceTensor tanh() const {
-        return apply([](double x){ return ::tanh(x); });
+        return apply([](float x){ return ::tanh(x); });
     }
 
     InferenceTensor transpose() const {
@@ -217,7 +217,7 @@ struct InferenceTensor {
     }
 
     InferenceTensor relu() const {
-        return apply([](double x){ return x > 0 ? x : 0; });
+        return apply([](float x){ return x > 0 ? x : 0; });
     }
 
     InferenceTensor flatten() const {

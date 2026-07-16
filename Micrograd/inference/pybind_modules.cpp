@@ -12,7 +12,7 @@ namespace py = pybind11;
 PYBIND11_MODULE(inference_tensor, m) {
     py::class_<InferenceTensor>(m, "InferenceTensor")
         .def(py::init<vector<size_t>>())
-        .def(py::init<vector<size_t>, double>())
+        .def(py::init<vector<size_t>, float>())
         .def("__matmul__", &InferenceTensor::matmul)
         .def("tanh", &InferenceTensor::tanh)
         .def("transpose", &InferenceTensor::transpose)

@@ -30,11 +30,11 @@ struct ConvLayer{
         }
     }
 
-    void set_values(const vector<vector<vector<vector<double>>>>& filters){
+    void set_values(const vector<vector<vector<vector<float>>>>& filters){
         assert(filters.size() == num_layers);
         for(size_t i = 0; i < num_layers; i++){
             assert(filters[i].size() == depth);
-            vector<double> flat_values;
+            vector<float> flat_values;
             flat_values.reserve(depth * filter_size * filter_size);
             for(size_t d = 0; d < depth; d++){
                 assert(filters[i][d].size() == filter_size);

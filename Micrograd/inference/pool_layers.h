@@ -40,14 +40,11 @@ struct MaxPoolLayer{
         size_t input_x = padded_input.shape[1];
         size_t input_y = padded_input.shape[2];
 
-        InferenceTensor output_tensor({input_depth, (input_x - kernal_size) / stride + 1, (input_y - kernal_size) / stride + 1}, numeric_limits<double>::infinity());
-        // cout << "input_x = " << input_x << ", input_y = " << input_y << ", kernal_size = " << kernal_size << ", stride = " << stride << ", padding = " << padding << endl;
-        // cout << "(input_x - kernal_size)" << (input_x - kernal_size) << "\n";
-        // cout << "(input_x - kernal_size) / stride = " << (input_x - kernal_size) / stride << "\n";
+        InferenceTensor output_tensor({input_depth, (input_x - kernal_size) / stride + 1, (input_y - kernal_size) / stride + 1}, numeric_limits<float>::infinity());
 
         auto _apply_pool = [&](size_t r, size_t c){
             for(size_t d = 0; d < input_depth; d++){
-                double max_value = -numeric_limits<double>::infinity();
+                float max_value = -numeric_limits<float>::infinity();
                 for(size_t i = r; i < r + kernal_size; i++){
                     for(size_t j = c; j < c + kernal_size; j++){
                         max_value = max(max_value, padded_input.get_item({d, i, j}));
@@ -87,13 +84,13 @@ struct AdaptiveAvgPoolLayer{
         auto _apply_pool = [&](size_t d){
             for(size_t i = 0; i < output_size; i++){
                 for(size_t j = 0; j < output_size; j++){
-                    double sum_value = 0;
+                    float sum_value = 0;
                     for(size_t x = i * input_x / output_size; x < (i + 1) * input_x / output_size; x++){
                         for(size_t y = j * input_y / output_size; y < (j + 1) * input_y / output_size; y++){
                             sum_value += input_tensor.get_item({d, x, y});
                         }
                     }
-                    double avg_value = sum_value / ((input_x / output_size) * (input_y / output_size));
+                    float avg_value = sum_value / ((input_x / output_size) * (input_y / output_size));
                     output_tensor.set_item({d, i, j}, avg_value);
                 }
             }

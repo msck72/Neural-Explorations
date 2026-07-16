@@ -1,19 +1,19 @@
 import { useState } from "react"
 import defaultImage from "../assets/elephant.jpeg"
 
-const FILTER_SERVICE_API = import.meta.env.VITE_FETCH_SERVICE_API;    
+const VITE_FILTER_SERVICE_API = import.meta.env.VITE_FILTER_SERVICE_API;    
 
 function ApplyFilters() {
 
     const [image, setImage] = useState(defaultImage);
 
     const [filterImages, setFilterImages] = useState({
-            filter1: defaultImage,
-            filter2: defaultImage,
-            filter3: defaultImage,
-            filter4: defaultImage,
-            filter5: defaultImage,
-            filter6: defaultImage
+            Blur: defaultImage,
+            EdgeDetection: defaultImage,
+            GaussianBlur: defaultImage,
+            Sharpen: defaultImage,
+            SobelX: defaultImage,
+            SobelY: defaultImage
         });
     
     const handleImageChange = (e) => {
@@ -25,20 +25,34 @@ function ApplyFilters() {
         setImage(imageUrl);
         
         const applyInferenceEngineFilters = async () => {
+            if (!VITE_FILTER_SERVICE_API) {
+                alert('Filter service URL is not configured. Please set VITE_FILTER_SERVICE_API.');
+                return;
+            }
+
             const formData = new FormData();
             formData.append("image", file);
 
             try{
-                const response = await fetch(FILTER_SERVICE_API, {
+                console.log('Sending image to filter service', VITE_FILTER_SERVICE_API)
+                const response = await fetch(VITE_FILTER_SERVICE_API, {
                     method: "POST",
-                    body: formData
+                    body: formData,
+                    credentials: 'omit'
                 });
+                console.log('Got a response from filter service')
+
+                if (!response.ok) {
+                    console.log('Response Not OK')
+                    const errorText = await response.text();
+                    throw new Error(errorText);
+                }
 
                 const result = await response.json();
-                setFilterImages(prev => ({
-                    ...prev,
-                    ...result,
-                }));
+                // setFilterImages(prev => ({
+                //     ...prev,
+                //     ...result,
+                // }));
                 console.log('received responze');
             } catch (error) {
                 alert('FILTER SERVICE FAILURE');
@@ -68,6 +82,8 @@ function ApplyFilters() {
             </>
         )
     } 
+
+    // console.log(import.meta.env);
 
     return (
         <>

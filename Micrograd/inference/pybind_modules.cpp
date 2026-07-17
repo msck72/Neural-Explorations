@@ -72,6 +72,10 @@ PYBIND11_MODULE(pool_layers, m) {
 }
 
 PYBIND11_MODULE(resnet, m) {
+    py::module::import("conv_cpp");
+    py::module::import("pool_layers");
+    py::module::import("inference_tensor");
+
     py::class_<Stem>(m, "Stem")
         .def(py::init<int, int, int, int, int, int, int, int>())
         .def("__call__", &Stem::operator())

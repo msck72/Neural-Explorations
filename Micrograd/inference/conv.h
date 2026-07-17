@@ -97,14 +97,14 @@ struct ConvLayer{
             }
         };
 
-        vector<thread> threads;
         for(size_t row = 0; row <= input_x - filter_size; row += stride){
+            vector<thread> threads;
             for(size_t col = 0; col <= input_y - filter_size; col += stride){
                 threads.emplace_back(_apply_filter, row, col);
             }
-        }
-        for(auto& t : threads){
-            t.join();
+            for(auto& t : threads){
+                t.join();
+            }
         }
         return output_tensor;
     }

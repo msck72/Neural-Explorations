@@ -169,7 +169,7 @@ def apply_guassian_blur_filter(img: InferenceTensor):
         [
             [[1, 2, 1],
             [2, 4, 2],
-            [1, 2, 1]] / 16.0,
+            [1, 2, 1]],
 
             [[0, 0, 0],
             [0, 0, 0],
@@ -187,7 +187,7 @@ def apply_guassian_blur_filter(img: InferenceTensor):
 
             [[1, 2, 1],
             [2, 4, 2],
-            [1, 2, 1]] / 16.0,
+            [1, 2, 1]],
 
             [[0, 0, 0],
             [0, 0, 0],
@@ -205,9 +205,9 @@ def apply_guassian_blur_filter(img: InferenceTensor):
 
             [[1, 2, 1],
             [2, 4, 2],
-            [1, 2, 1]] / 16.0
+            [1, 2, 1]]
         ]
-    ], dtype=np.float32)
+    ], dtype=np.float32) / 16.0
     gauss.set_values(g.tolist())
     return gauss(img)
 

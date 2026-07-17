@@ -49,10 +49,17 @@ function ApplyFilters() {
                 }
 
                 const result = await response.json();
-                // setFilterImages(prev => ({
-                //     ...prev,
-                //     ...result,
-                // }));
+                // console.log(result)
+                const processed_images = Object.fromEntries(
+                    Object.entries(result).map(([key, value]) => [
+                        key,
+                        `data:image/png;base64,${value}`,
+                    ])
+                );
+                setFilterImages(prev => ({
+                    ...prev,
+                    ...processed_images,
+                }));
                 console.log('received responze');
             } catch (error) {
                 alert('FILTER SERVICE FAILURE');

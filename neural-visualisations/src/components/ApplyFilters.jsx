@@ -1,7 +1,7 @@
 import { useState } from "react"
 import defaultImage from "../assets/elephant.jpeg"
 
-const VITE_FILTER_SERVICE_API = import.meta.env.VITE_FILTER_SERVICE_API;    
+const VITE_FILTER_SERVICE_API = import.meta.env.VITE_FILTER_SERVICE_API;
 
 function ApplyFilters() {
 
@@ -15,7 +15,10 @@ function ApplyFilters() {
             SobelX: defaultImage,
             SobelY: defaultImage
         });
-    
+
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+
     const handleImageChange = (e) => {
         const file = e.target.files[0];
 
@@ -23,10 +26,13 @@ function ApplyFilters() {
 
         const imageUrl = URL.createObjectURL(file);
         setImage(imageUrl);
+        setError("");
+        setLoading(true);
         
         const applyInferenceEngineFilters = async () => {
             if (!VITE_FILTER_SERVICE_API) {
-                alert('Filter service URL is not configured. Please set VITE_FILTER_SERVICE_API.');
+                setError('Filter service URL is not configured. Please set VITE_FILTER_SERVICE_API.');
+                setLoading(false);
                 return;
             }
 
@@ -34,22 +40,18 @@ function ApplyFilters() {
             formData.append("image", file);
 
             try{
-                console.log('Sending image to filter service', VITE_FILTER_SERVICE_API)
                 const response = await fetch(VITE_FILTER_SERVICE_API, {
                     method: "POST",
                     body: formData,
                     credentials: 'omit'
                 });
-                console.log('Got a response from filter service')
 
                 if (!response.ok) {
-                    console.log('Response Not OK')
                     const errorText = await response.text();
-                    throw new Error(errorText);
+                    throw new Error(errorText || 'Filter service returned an error');
                 }
 
                 const result = await response.json();
-                // console.log(result)
                 const processed_images = Object.fromEntries(
                     Object.entries(result).map(([key, value]) => [
                         key,
@@ -60,10 +62,11 @@ function ApplyFilters() {
                     ...prev,
                     ...processed_images,
                 }));
-                console.log('received responze');
             } catch (error) {
-                alert('FILTER SERVICE FAILURE');
+                setError('FILTER SERVICE FAILURE');
                 console.log("Error occured during API call to FILTER_SERVICE: ", error);
+            } finally {
+                setLoading(false);
             }
         }
 
@@ -72,47 +75,62 @@ function ApplyFilters() {
     }
 
     function FiltersDivs() {
-
         return (
-            <>
-                <div className="flex flex-wrap gap-10">
-                    {Object.entries(filterImages).map(([filter, image]) => (
-                        <div key={filter}>
-                        <img
-                            src={image}
-                            alt={filter}
-                            className="w-auto h-auto max-w-84 max-h-84 object-cover rounded-lg border"
-                        />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {Object.entries(filterImages).map(([filter, img]) => (
+                    <div key={filter} className="bg-white shadow-sm rounded-lg overflow-hidden hover:shadow-lg transition-transform transform hover:-translate-y-1">
+                        <div className="w-full h-40 flex items-center justify-center bg-gray-100">
+                            <img
+                                src={img}
+                                alt={filter}
+                                className="max-w-full max-h-full object-contain"
+                            />
                         </div>
-                    ))}
-                </div>
-            </>
+                        <div className="p-2 text-sm font-medium text-center bg-gray-50">{filter}</div>
+                    </div>
+                ))}
+            </div>
         )
-    } 
-
-    // console.log(import.meta.env);
+    }
 
     return (
-        <>
-            {/* <div className="p-4 m-4">Apply Fillters route</div> */}
-            <div className="flex space-x-4">
-                <div className="m-4 flex-1 text-center">
-                    <div className="flex flex-col items-center gap-4">
-                        <img
-                            src={image}
-                            alt="Preview"
-                            className="w-auto h-auto max-w-512 max-h-128 object-cover rounded-lg border"
-                        />
-                        <label htmlFor="image-upload"
-                        className="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-600" >
-                            Upload Image
-                        </label>
-                        <input id="image-upload" type="file" accept="image/*" className="hidden" onChange={handleImageChange}/>
+        <div className="p-6">
+            <div className="mx-auto bg-white/60 backdrop-blur-md rounded-2xl shadow-xl p-6">
+                {/* <h2 className="text-2xl font-semibold mb-4">Apply Filters</h2> */}
+                <div className="flex flex-col md:flex-row gap-6">
+                    <div className="flex-1">
+                        <div className="bg-linear-to-br from-white to-gray-50 rounded-lg p-4 shadow-inner border border-gray-200">
+                            <div className="relative w-full flex items-center justify-center bg-gray-100 rounded-md border overflow-hidden">
+                                <img
+                                    src={image}
+                                    alt="Preview"
+                                    className="max-w-full max-h-full object-contain"
+                                />
+                                {loading && (
+                                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-md">
+                                        <div className="flex items-center gap-3">
+                                            <div className="border-4 border-t-blue-500 border-gray-200 rounded-full animate-spin" />
+                                            <div className="text-white font-medium">Processing...</div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="mt-4 flex items-center justify-center gap-4">
+                                <label htmlFor="image-upload" className="px-4 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition">Upload Image</label>
+                                <input id="image-upload" type="file" accept="image/*" className="hidden" onChange={handleImageChange}/>
+                                {error && <div className="text-red-600 text-sm">{error}</div>}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex-1">
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                            <h3 className="text-lg font-medium mb-3">Filtered Outputs</h3>
+                            <FiltersDivs />
+                        </div>
                     </div>
                 </div>
-                <div className="m-4 flex-1 text-center"><FiltersDivs /></div>
             </div>
-        </>
+        </div>
     )
 }
 

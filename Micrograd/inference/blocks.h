@@ -25,13 +25,15 @@ struct BN_layer{
     BN_layer(size_t channels)
         : weight({channels}, 1.0), bias({channels}, 0.0),
           running_mean({channels}, 0.0), running_var({channels}, 1.0) {
-    }
-    
+        
+        }
+        
     InferenceTensor operator()(InferenceTensor input_tensor){
         input_tensor.sub_channelwise_inplace(running_mean);
-        running_var.add_channelwise_inplace(InferenceTensor(running_var.shape, 1e-5));
-        running_var.sqrt_inplace();
-        input_tensor.div_channelwise_inplace(running_var);
+        InferenceTensor curr_running_var = running_var;
+        curr_running_var.add_channelwise_inplace(InferenceTensor(curr_running_var.shape, 1e-5));
+        curr_running_var.sqrt_inplace();
+        input_tensor.div_channelwise_inplace(curr_running_var);
         input_tensor.mul_channelwise_inplace(weight);
         input_tensor.add_channelwise_inplace(bias);
         return input_tensor;
